@@ -5,7 +5,6 @@ begin
 
 (*
   TODO:
-    * Add CATCH
     * Integrate with sepref --- currently, it's "integrated" by providing 
         some support to translate the program in to a plain nres monad before 
         sepref is invoked.
