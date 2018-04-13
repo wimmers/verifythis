@@ -30,6 +30,9 @@ definition [enres_unfolds]: "THROW e == RETURN (Inl e)"
 
 definition [enres_unfolds]: "ESPEC \<Phi> \<Psi> \<equiv> SPEC (\<lambda>Inl e \<Rightarrow> \<Phi> e | Inr r \<Rightarrow> \<Psi> r)"
 
+definition [enres_unfolds]: "CATCH m h \<equiv> do { r\<leftarrow>m; case r of Inl e \<Rightarrow> h e | Inr r \<Rightarrow> RETURN (Inr r) }"
+
+
 
 abbreviation (do_notation) bind_doE where "bind_doE \<equiv> ebind"
 
@@ -138,6 +141,16 @@ lemma pw_EASSERT[simp, refine_pw_simps]:
   unfolding EASSERT_def  
   by (auto simp: refine_pw_simps)
 
+lemma pw_CATCH[refine_pw_simps]:
+  "nofail (CATCH m h) \<longleftrightarrow> (nofail m \<and> (\<forall>x. inres m (Inl x) \<longrightarrow> nofail (h x)))"
+  "inres (CATCH m h) (Inl e) \<longleftrightarrow> (nofail m \<longrightarrow> (\<exists>e'. inres m (Inl e') \<and> inres (h e') (Inl e)))"
+  "inres (CATCH m h) (Inr x) \<longleftrightarrow> inres m (Inr x) \<or> (\<exists>e. inres m (Inl e) \<and> inres (h e) (Inr x))"
+  unfolding CATCH_def
+  apply (auto simp add: refine_pw_simps split: sum.splits)  
+  using sum.exhaust_sel apply blast
+  using sum.exhaust_sel apply blast
+  done
+  
 lemma pw_ele_iff: "m \<le> n \<longleftrightarrow> (nofail n \<longrightarrow> 
     nofail m 
   \<and> (\<forall>e. inres m (Inl e) \<longrightarrow> inres n (Inl e))
@@ -163,8 +176,13 @@ lemma enres_monad_laws[simp]:
   
 lemma enres_additional_laws[simp]:
   "ebind (THROW e) f = THROW e"
-  by (auto simp: pw_eeq_iff refine_pw_simps)
   
+  "CATCH (THROW e) h = h e"
+  "CATCH (ERETURN x) h = ERETURN x"
+  "CATCH m THROW = m"
+  
+  apply (auto simp: pw_eeq_iff refine_pw_simps)
+  done  
 
 lemmas ESPEC_trans = order_trans[where z="ESPEC Error_Postcond Normal_Postcond" for Error_Postcond Normal_Postcond, zero_var_indexes]
 
@@ -192,6 +210,12 @@ lemmas ESPEC_rule[refine_vcg] = ESPEC_rule_iff[THEN iffD2]
 lemma THROW_rule_iff: "THROW e \<le> ESPEC \<Phi> \<Psi> \<longleftrightarrow> \<Phi> e"
   by (auto simp: pw_ele_iff refine_pw_simps)
 lemmas THROW_rule[refine_vcg] = THROW_rule_iff[THEN iffD2]
+
+lemma CATCH_rule_iff: "CATCH m h \<le> ESPEC \<Phi> \<Psi> \<longleftrightarrow> m \<le> ESPEC (\<lambda>e. h e \<le> ESPEC \<Phi> \<Psi>) \<Psi>"
+  by (auto simp: pw_ele_iff refine_pw_simps)
+lemmas CATCH_rule[refine_vcg] = CATCH_rule_iff[THEN iffD2]
+
+
 
 lemma CHECK_rule_iff: "CHECK c e \<le> ESPEC \<Phi> \<Psi> \<longleftrightarrow> (c \<longrightarrow> \<Psi> ()) \<and> (\<not>c \<longrightarrow> \<Phi> e)"
   by (auto simp: pw_ele_iff refine_pw_simps)
@@ -450,7 +474,20 @@ lemma ebind_refine':
 
 lemma THROW_refine[refine]: "(ei,e)\<in>E \<Longrightarrow> THROW ei \<le>\<Down>\<^sub>E E R (THROW e)"
   by (auto simp: pw_ele_iff refine_pw_simps)
-    
+
+lemma CATCH_refine':
+  assumes "mi \<le> \<Down>\<^sub>E E' R m"
+  assumes "\<And>ei e. \<lbrakk> (ei,e)\<in>E'; inres mi (Inl ei); inres m (Inl e); nofail mi; nofail m \<rbrakk> \<Longrightarrow> hi ei \<le>\<Down>\<^sub>E E R (h e)"
+  shows "CATCH mi hi \<le> \<Down>\<^sub>E E R (CATCH m h)"  
+  using assms
+  by (simp add: pw_ele_iff refine_pw_simps) blast
+  
+lemma CATCH_refine[refine]:
+  assumes "mi \<le> \<Down>\<^sub>E E' R m"
+  assumes "\<And>ei e. \<lbrakk> (ei,e)\<in>E' \<rbrakk> \<Longrightarrow> hi ei \<le>\<Down>\<^sub>E E R (h e)"
+  shows "CATCH mi hi \<le> \<Down>\<^sub>E E R (CATCH m h)"  
+  using assms CATCH_refine' by metis
+
 lemma CHECK_refine[refine]: 
   assumes "\<Phi>i \<longleftrightarrow> \<Phi>"
   assumes "\<not>\<Phi> \<Longrightarrow> (msgi,msg)\<in>E"
@@ -610,6 +647,12 @@ lemma [enres_breakdown]:
   apply (auto split: sum.splits simp: pw_eq_iff refine_pw_simps)
   done
 
+lemma [enres_breakdown]:
+  "CATCH (enres_lift m) h = enres_lift m"  
+  unfolding enres_unfolds enres_lift_def
+  apply (auto split: sum.splits simp: pw_eq_iff refine_pw_simps)
+  done
+  
 lemma enres_lift_fail[simp]:  "enres_lift FAIL = FAIL"
   unfolding enres_lift_def by auto
 
