@@ -7,6 +7,8 @@ imports
   Exc_Nres_Monad
 begin
 
+no_notation Ref.lookup ("!_" 61)
+no_notation Ref.update ("_ := _" 62)
 
 
 end

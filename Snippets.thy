@@ -34,7 +34,7 @@ begin
     ERETURN ()
   }"
   
-  
+  (* ESPEC Exc Normal ! *)
   lemma "check_prefix xs ys \<le> ESPEC (\<lambda>_. xs \<noteq> take (length xs) ys) (\<lambda>_. xs = take (length xs) ys)"
     unfolding check_prefix_def
     apply (refine_vcg EWHILEIT_rule[where R="measure (\<lambda>i. length xs - i)"])
@@ -70,4 +70,21 @@ begin
   export_code check_prefix_impl checking SML_imp
   
 
+  definition "cp_array xs \<equiv> do {
+    let ys = op_array_replicate (length xs) 0;   (* Use proper constructors *)
+    
+    ys \<leftarrow> nfoldli [0..<length xs] (\<lambda>_. True) (\<lambda>i ys. do {  (* Ensure linearity! ys\<leftarrow>\<dots> *)
+      ASSERT (i<length xs \<and> i<length ys); 
+      RETURN (ys[i:=xs!i]) 
+    }) ys;
+    
+    RETURN ys
+  }"
+  
+  sepref_definition cp_array_impl is cp_array :: "(array_assn nat_assn)\<^sup>k \<rightarrow>\<^sub>a array_assn nat_assn"
+    unfolding cp_array_def
+    by sepref
+  
+  
+  
 end
