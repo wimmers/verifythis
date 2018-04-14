@@ -44,17 +44,19 @@ begin
     done 
     
 
-  definition "cright \<equiv> \<lambda>(l,r,buf). (if l<length buf then (l+1,r+1,buf[l:=buf!r]) else (l,r,buf))"
+  definition "cright \<equiv> \<lambda>(l,r,buf). (if r<length buf then (l+1,r+1,buf[l:=buf!r]) else (l,r,buf))"
     
   lemma "(cright,aright) \<in> gap_rel \<rightarrow> gap_rel"
-    unfolding cinsert_def ainsert_def gap_\<alpha>_def gap_invar_def
+    unfolding cright_def aright_def gap_\<alpha>_def gap_invar_def
     apply (auto simp: in_br_conv split: prod.split)
-    subgoal   sorry
-    subgoal   sorry
-    subgoal   sorry
-    
-    oops
-    
+        apply linarith
+    subgoal for l r buf
+      apply (subst take_Suc_conv_app_nth)
+       apply simp
+      by (smt add_diff_cancel_right' append.assoc append_take_drop_id hd_drop_conv_nth le_less le_less_trans order_less_irrefl same_append_eq take_hd_drop take_update_last)
+    subgoal apply linarith done
+    subgoal apply linarith done
+    done
 
   definition "cdelete \<equiv> \<lambda>(l,r,buf). (if l\<noteq>0 then (l-1,r,buf) else (l,r,buf))"
   lemma "(cdelete,adelete) \<in> gap_rel \<rightarrow> gap_rel"
